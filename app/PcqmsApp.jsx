@@ -949,7 +949,7 @@ export default function App() {
         <form onSubmit={handleLogin} className={`p-8 rounded-3xl w-full max-w-sm border transition-colors ${t.card}`}>
           <div className="text-center mb-8">
             <div className="mx-auto mb-4 text-blue-500 flex justify-center"><div className="bg-blue-100 p-3 rounded-full"><svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg></div></div>
-            <h2 className="text-3xl font-extrabold tracking-tight">PCQMS Login</h2>
+            <h2 className="text-3xl font-extrabold tracking-tight">chapatiQMS Login</h2>
             <p className={`text-sm mt-1 ${t.label}`}>Authenticate via FLAuthenticationlist</p>
           </div>
           {error && <div className={`p-3 rounded-xl mb-6 text-sm font-bold border flex items-center ${t.alertCard}`}>{error}</div>}
@@ -973,7 +973,7 @@ export default function App() {
   return (
     <div className={`min-h-screen pb-24 transition-colors ${t.appBg}`}>
       <header className={`p-4 sticky top-0 flex justify-between items-center z-10 transition-colors ${t.header}`}>
-        <h1 className="font-extrabold text-lg tracking-tight">PCQMS Mobile</h1>
+        <h1 className="font-extrabold text-lg tracking-tight">chapatiQMS Mobile</h1>
         <div className="flex items-center gap-3">
 
           <div className="relative">

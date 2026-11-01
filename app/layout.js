@@ -1,5 +1,5 @@
 export const metadata = {
-  title: "PCQMS App",
+  title: "chapatiQMS",
   description: "Process & Chapati Quality Management System",
 };
 
