@@ -92,6 +92,125 @@ const THEMES = {
   }
 };
 
+// --- Dashboard visual language (validated brand-neutral data-viz palette) ---
+const VIZ = {
+  blue: '#2a78d6',   // sequential / magnitude
+  aqua: '#1baf7a',
+  good: '#0ca30c',
+  critical: '#d03b3b',
+};
+
+const num = (x) => {
+  const n = Number(x);
+  return Number.isFinite(n) ? n : 0;
+};
+const hasVal = (x) => x !== undefined && x !== null && x !== '';
+const timeToSec = (v) => {
+  if (!hasVal(v)) return null;
+  const s = String(v);
+  if (s.includes(':')) {
+    const [m, sec] = s.split(':');
+    return (parseInt(m, 10) || 0) * 60 + (parseInt(sec, 10) || 0);
+  }
+  const n = Number(s);
+  return Number.isFinite(n) ? n : null;
+};
+
+const StatTile = ({ label, value, sub, t }) => (
+  <div className={`rounded-2xl border p-4 ${t.card}`}>
+    <div className={`text-[10px] font-bold uppercase tracking-wider ${t.label}`}>{label}</div>
+    <div className="text-3xl font-black mt-1 tabular-nums leading-none">{value}</div>
+    {sub && <div className={`text-[11px] font-semibold mt-1 ${t.label}`}>{sub}</div>}
+  </div>
+);
+
+// Horizontal bar list — best for labelled categories on mobile.
+const HBars = ({ title, items, t, unit = '', max: maxOverride, color = VIZ.blue }) => {
+  const max = maxOverride || Math.max(1, ...items.map((i) => i.value || 0));
+  return (
+    <div className={`rounded-2xl border p-5 mb-4 ${t.card}`}>
+      <h3 className="font-extrabold text-sm mb-4">{title}</h3>
+      {items.length === 0 ? (
+        <div className={`text-xs font-semibold ${t.label}`}>No data yet.</div>
+      ) : (
+        <div className="space-y-3">
+          {items.map((it) => {
+            const pct = Math.max(0, Math.min(100, ((it.value || 0) / max) * 100));
+            const barColor = it.color || color;
+            return (
+              <div key={it.label}>
+                <div className="flex justify-between items-baseline mb-1 gap-2">
+                  <span className={`text-xs font-bold truncate ${t.label}`}>{it.label}</span>
+                  <span className="text-xs font-black tabular-nums whitespace-nowrap">
+                    {it.display !== undefined ? it.display : `${it.value}${unit}`}
+                  </span>
+                </div>
+                <div className="h-2.5 w-full rounded-full overflow-hidden" style={{ backgroundColor: 'currentColor', opacity: 0.12 }} />
+                <div className="h-2.5 rounded-full -mt-2.5" style={{ width: `${pct}%`, backgroundColor: barColor }} title={`${it.label}: ${it.display !== undefined ? it.display : it.value + unit}`} />
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+};
+
+// Vertical bars — a short per-batch series (magnitude over recent batches).
+const VBars = ({ title, items, t, unit = '' }) => {
+  const max = Math.max(1, ...items.map((i) => i.value || 0));
+  return (
+    <div className={`rounded-2xl border p-5 mb-4 ${t.card}`}>
+      <h3 className="font-extrabold text-sm mb-4">{title}</h3>
+      {items.length === 0 ? (
+        <div className={`text-xs font-semibold ${t.label}`}>No data yet.</div>
+      ) : (
+        <div className="flex items-end justify-between gap-1.5 h-40">
+          {items.map((it) => {
+            const pct = Math.max(2, ((it.value || 0) / max) * 100);
+            return (
+              <div key={it.label} className="flex-1 flex flex-col items-center justify-end h-full min-w-0">
+                <span className="text-[9px] font-black tabular-nums mb-1">{it.value}</span>
+                <div className="w-full rounded-t-md" style={{ height: `${pct}%`, backgroundColor: VIZ.blue }} title={`${it.label}: ${it.value}${unit}`} />
+                <span className={`text-[8px] font-bold mt-1 truncate w-full text-center ${t.label}`} title={it.label}>{it.short}</span>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+};
+
+// Pass-rate list — status-colored with icon + label (never color alone).
+const PassRateBars = ({ title, items, t }) => (
+  <div className={`rounded-2xl border p-5 mb-4 ${t.card}`}>
+    <h3 className="font-extrabold text-sm mb-4">{title}</h3>
+    {items.length === 0 ? (
+      <div className={`text-xs font-semibold ${t.label}`}>No in-process data yet.</div>
+    ) : (
+      <div className="space-y-3">
+        {items.map((it) => {
+          const good = it.rate >= 90;
+          const c = good ? VIZ.good : VIZ.critical;
+          return (
+            <div key={it.label}>
+              <div className="flex justify-between items-baseline mb-1 gap-2">
+                <span className={`text-xs font-bold truncate ${t.label}`}>{it.label}</span>
+                <span className="text-xs font-black tabular-nums whitespace-nowrap" style={{ color: c }}>
+                  {good ? '✓' : '✗'} {it.rate}% <span className={`font-semibold ${t.label}`}>({it.okay}/{it.total})</span>
+                </span>
+              </div>
+              <div className="h-2.5 w-full rounded-full overflow-hidden" style={{ backgroundColor: 'currentColor', opacity: 0.12 }} />
+              <div className="h-2.5 rounded-full -mt-2.5" style={{ width: `${it.rate}%`, backgroundColor: c }} />
+            </div>
+          );
+        })}
+      </div>
+    )}
+  </div>
+);
+
 const Stopwatch = ({ label, value, onChange, targetTime, t }) => {
   const [isActive, setIsActive] = useState(false);
   const [isAlarming, setIsAlarming] = useState(false);
@@ -315,6 +434,9 @@ export default function App() {
   const [showWeightModal, setShowWeightModal] = useState(false);
   const [packWeights, setPackWeights] = useState(Array(10).fill(''));
 
+  const [dashboardBatches, setDashboardBatches] = useState([]);
+  const [dashboardRange, setDashboardRange] = useState('all'); // 'all' | '30' | '7'
+
   const defaultBatchData = {
     'General Info': {}, 'Dry Blending': {}, 'Oil Blending': {}, 'Wet Blending': {},
     'Final Blending': {}, 'Quality Checks': {}, 'Environment': {}, 'Sign off': {}
@@ -353,6 +475,14 @@ export default function App() {
         callServer('/api/batches/active').then((res) => {
           setLoading(false);
           if (res.success) setActiveBatchesList(res.activeBatches);
+        });
+      }
+
+      if (activeTab === 'dashboard') {
+        setLoading(true);
+        callServer('/api/batches/all').then((res) => {
+          setLoading(false);
+          if (res.success) setDashboardBatches(res.batches);
         });
       }
     }
@@ -943,6 +1073,96 @@ export default function App() {
     }
   };
 
+  const computeDashboard = () => {
+    let list = dashboardBatches;
+    if (dashboardRange !== 'all') {
+      const days = Number(dashboardRange);
+      const cutoff = new Date();
+      cutoff.setHours(0, 0, 0, 0);
+      cutoff.setDate(cutoff.getDate() - (days - 1));
+      list = list.filter((b) => b.batchDate && new Date(b.batchDate) >= cutoff);
+    }
+
+    const total = list.length;
+    const active = list.filter((b) => b.status === 'active').length;
+    const closed = list.filter((b) => b.status === 'closed').length;
+
+    // Average overall sensory (/60) across batches that have it
+    const sensoryVals = list
+      .map((b) => b.inProcess?.['Batch Sensory']?.overallQuality)
+      .filter(hasVal)
+      .map(num);
+    const avgSensory = sensoryVals.length
+      ? (sensoryVals.reduce((a, c) => a + c, 0) / sensoryVals.length).toFixed(1)
+      : '—';
+
+    // Recent batches (last 8) — Total Dough per batch
+    const recent = list.slice(-8);
+    const doughBars = recent
+      .filter((b) => hasVal(b.prep?.Totals?.totalDough))
+      .map((b) => ({
+        label: b.id,
+        short: b.id.split('-')[1] || b.id.slice(-3),
+        value: Math.round(num(b.prep?.Totals?.totalDough)),
+      }));
+
+    // Average sensory attribute breakdown (closed batches with sensory)
+    const sens = list.map((b) => b.inProcess?.['Batch Sensory']).filter(Boolean);
+    const avgAttr = (f) => {
+      const vals = sens.map((s) => s?.[f]).filter(hasVal).map(num);
+      return vals.length ? vals.reduce((a, c) => a + c, 0) / vals.length : 0;
+    };
+    const sensoryBreakdown = [
+      { label: 'Appearance (/10)', value: +avgAttr('appearance').toFixed(1), display: `${avgAttr('appearance').toFixed(1)} / 10`, pctMax: 10 },
+      { label: 'Aroma (/10)', value: +avgAttr('aroma').toFixed(1), display: `${avgAttr('aroma').toFixed(1)} / 10`, pctMax: 10 },
+      { label: 'Pliability (/10)', value: +avgAttr('pliability').toFixed(1), display: `${avgAttr('pliability').toFixed(1)} / 10`, pctMax: 10 },
+      { label: 'Tearing Strength (/10)', value: +avgAttr('tearingStrength').toFixed(1), display: `${avgAttr('tearingStrength').toFixed(1)} / 10`, pctMax: 10 },
+      { label: 'Eating Quality (/20)', value: +avgAttr('eatingQuality').toFixed(1), display: `${avgAttr('eatingQuality').toFixed(1)} / 20`, pctMax: 20 },
+    ]
+      .filter(() => sens.length > 0)
+      // normalise each to % of its own max so bars are comparable
+      .map((r) => ({ label: r.label, value: Math.round((r.value / r.pctMax) * 100), display: r.display }));
+
+    // Average blending times (seconds)
+    const avgTime = (block, field) => {
+      const vals = list.map((b) => timeToSec(b.prep?.[block]?.[field])).filter((v) => v !== null && v > 0);
+      return vals.length ? Math.round(vals.reduce((a, c) => a + c, 0) / vals.length) : 0;
+    };
+    const fmtSec = (s) => `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
+    const timeBars = [
+      { label: 'Dry Blending', value: avgTime('Dry Blending', 'dryTime') },
+      { label: 'Oil Blending', value: avgTime('Oil Blending', 'oilTime') },
+      { label: 'Wet Blending', value: avgTime('Wet Blending', 'wetTime') },
+      { label: 'Final Blending', value: avgTime('Final Blending', 'finalTime') },
+    ].map((r) => ({ ...r, display: r.value ? fmtSec(r.value) : '—' }));
+
+    // Quality pass rates (Okay / Not Okay checks)
+    const passRate = (getter, label) => {
+      const vals = list.map(getter).filter(hasVal);
+      const okay = vals.filter((v) => String(v).toLowerCase() === 'okay').length;
+      return { label, okay, total: vals.length, rate: vals.length ? Math.round((okay / vals.length) * 100) : 0 };
+    };
+    const qualityRates = [
+      passRate((b) => b.prep?.['Quality Checks']?.doughAroma, 'Dough Aroma'),
+      passRate((b) => b.prep?.['Quality Checks']?.waterOdour, 'Water Odour'),
+      passRate((b) => b.inProcess?.['Pack Quality']?.finalProductSensory, 'Final Product Sensory'),
+      passRate((b) => b.inProcess?.['Pack Quality']?.finalProductOdour, 'Final Product Odour'),
+      passRate((b) => b.inProcess?.['Pack Quality']?.sealingQuality, 'Sealing Quality'),
+    ].filter((r) => r.total > 0);
+
+    // Recent table rows (most recent first)
+    const tableRows = [...list].slice(-10).reverse().map((b) => ({
+      id: b.id,
+      date: b.prep?.['General Info']?.date || b.batchDate || '—',
+      status: b.status,
+      dough: hasVal(b.prep?.Totals?.totalDough) ? Math.round(num(b.prep?.Totals?.totalDough)) : '—',
+      moisture: hasVal(b.prep?.['Quality Checks']?.doughMoisture) ? b.prep['Quality Checks'].doughMoisture : '—',
+      sensory: hasVal(b.inProcess?.['Batch Sensory']?.overallQuality) ? b.inProcess['Batch Sensory'].overallQuality : '—',
+    }));
+
+    return { total, active, closed, avgSensory, doughBars, sensoryBreakdown, timeBars, qualityRates, tableRows };
+  };
+
   if (!isLoggedIn) {
     return (
       <div className={`min-h-screen flex items-center justify-center p-6 transition-colors ${t.appBg}`}>
@@ -1135,6 +1355,78 @@ export default function App() {
             </div>
           </div>
         )}
+        {activeTab === 'dashboard' && (() => {
+          const d = computeDashboard();
+          return (
+            <div className="animate-[fadeIn_0.3s_ease-in-out]">
+              <div className="flex justify-between items-center mb-5 gap-2">
+                <h2 className="text-xl md:text-2xl font-extrabold tracking-tight">Dashboard</h2>
+                <div className="flex gap-1">
+                  {[['all', 'All'], ['30', '30d'], ['7', '7d']].map(([k, lbl]) => (
+                    <button key={k} onClick={() => setDashboardRange(k)}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-all ${dashboardRange === k ? t.btnPrimary : t.btnOutline}`}>
+                      {lbl}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {loading && dashboardBatches.length === 0 ? (
+                <div className="text-sm font-bold animate-pulse opacity-70">Loading dashboard…</div>
+              ) : d.total === 0 ? (
+                <div className={`text-center p-8 rounded-2xl border border-dashed ${t.card}`}>
+                  <p className={`font-medium ${t.label}`}>No batch records in this period yet.</p>
+                </div>
+              ) : (
+                <>
+                  <div className="grid grid-cols-2 gap-3 mb-4">
+                    <StatTile label="Total Batches" value={d.total} t={t} />
+                    <StatTile label="Avg Sensory" value={d.avgSensory} sub="out of 60" t={t} />
+                    <StatTile label="In Process" value={d.active} sub="active" t={t} />
+                    <StatTile label="Completed" value={d.closed} sub="closed" t={t} />
+                  </div>
+
+                  <VBars title="Total Dough — Recent Batches (gms)" items={d.doughBars} unit=" gms" t={t} />
+                  <HBars title="Avg Sensory Breakdown (% of max)" items={d.sensoryBreakdown} unit="%" max={100} color={VIZ.aqua} t={t} />
+                  <PassRateBars title="Quality Pass Rate (% Okay)" items={d.qualityRates} t={t} />
+                  <HBars title="Avg Blending Time (mm:ss)" items={d.timeBars} max={Math.max(1, ...d.timeBars.map(b => b.value))} t={t} />
+
+                  <div className={`rounded-2xl border p-5 mb-4 ${t.card}`}>
+                    <h3 className="font-extrabold text-sm mb-4">Recent Batches</h3>
+                    <div className="overflow-x-auto -mx-1">
+                      <table className="w-full text-xs">
+                        <thead>
+                          <tr className={`text-left ${t.label}`}>
+                            <th className="font-bold py-1.5 pr-2">Batch ID</th>
+                            <th className="font-bold py-1.5 pr-2">Status</th>
+                            <th className="font-bold py-1.5 pr-2 text-right tabular-nums">Dough</th>
+                            <th className="font-bold py-1.5 pr-2 text-right tabular-nums">Moist.</th>
+                            <th className="font-bold py-1.5 text-right tabular-nums">Sens.</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {d.tableRows.map((r) => (
+                            <tr key={r.id} className="border-t border-current/10">
+                              <td className="py-2 pr-2 font-mono font-bold truncate max-w-[110px]">{r.id}</td>
+                              <td className="py-2 pr-2">
+                                <span className="font-bold" style={{ color: r.status === 'closed' ? VIZ.good : VIZ.blue }}>
+                                  {r.status === 'closed' ? 'Closed' : 'Active'}
+                                </span>
+                              </td>
+                              <td className="py-2 pr-2 text-right tabular-nums">{r.dough}</td>
+                              <td className="py-2 pr-2 text-right tabular-nums">{r.moisture}</td>
+                              <td className="py-2 text-right tabular-nums font-bold">{r.sensory}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+          );
+        })()}
       </main>
 
       <nav className={`fixed bottom-0 w-full glass-nav flex justify-around px-1 py-2 pb-safe z-20 transition-colors ${t.navBg}`}>
@@ -1152,12 +1444,19 @@ export default function App() {
           </div>
           <span className="text-[9px] sm:text-[10px] font-bold text-center leading-tight mt-1">Batch In Process<br/>Check</span>
         </button>
-        <button onClick={() => setActiveTab('reports')} className={`flex flex-col items-center justify-center w-full py-1.5 px-1 transition-all duration-300 ${activeTab === 'reports' ? t.navActive : t.navInactive}`}>
+        <button onClick={() => setActiveTab('reports')} className={`flex flex-col items-center justify-center w-full py-1.5 px-1 border-r border-slate-300/30 transition-all duration-300 ${activeTab === 'reports' ? t.navActive : t.navInactive}`}>
           <div className="relative">
             {activeTab === 'reports' && <div className="absolute inset-[-8px] opacity-10 rounded-lg animate-pulse" style={{backgroundColor: 'currentColor'}}></div>}
             <svg className="w-5 h-5 sm:w-6 sm:h-6 mb-1 relative z-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>
           </div>
           <span className="text-[9px] sm:text-[10px] font-bold text-center leading-tight mt-1">Reports</span>
+        </button>
+        <button onClick={() => setActiveTab('dashboard')} className={`flex flex-col items-center justify-center w-full py-1.5 px-1 transition-all duration-300 ${activeTab === 'dashboard' ? t.navActive : t.navInactive}`}>
+          <div className="relative">
+            {activeTab === 'dashboard' && <div className="absolute inset-[-8px] opacity-10 rounded-lg animate-pulse" style={{backgroundColor: 'currentColor'}}></div>}
+            <svg className="w-5 h-5 sm:w-6 sm:h-6 mb-1 relative z-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path></svg>
+          </div>
+          <span className="text-[9px] sm:text-[10px] font-bold text-center leading-tight mt-1">Dashboard</span>
         </button>
       </nav>
 
